@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InstaPost Editor</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>" />
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand">📸 InstaPost&nbsp;<span>Editor</span></div>
+
+    <div class="topbar-group">
+      <label for="aspect-select">Canvas</label>
+      <select id="aspect-select" title="Canvas aspect ratio (Instagram formats)">
+        <option value="1:1">Square 1:1 (1080×1080)</option>
+        <option value="4:5" selected>Portrait 4:5 (1080×1350)</option>
+        <option value="9:16">Reel / Story 9:16 (1080×1920)</option>
+      </select>
+    </div>
+
+    <div class="topbar-group grow"></div>
+
+    <div class="topbar-group">
+      <button id="export-image-btn" class="btn" title="Save the current post as a PNG image">⬇ Image (PNG)</button>
+      <button id="export-video-btn" class="btn primary" title="Record the current post as a video file">⬇ Post Video</button>
+      <button id="export-all-btn" class="btn accent" title="Record every post back-to-back into one video file">⬇ All Posts → Video</button>
+    </div>
+  </header>
+
+  <main id="layout">
+    <!-- ============ LEFT: media library + posts ============ -->
+    <aside id="left-panel">
+      <section class="panel-section">
+        <h2>Media Library</h2>
+        <label id="drop-zone" for="file-input">
+          <input id="file-input" type="file" accept="image/*,video/*" multiple hidden />
+          <div class="drop-hint">
+            <strong>+ Add pictures &amp; videos</strong>
+            <span>click or drag &amp; drop</span>
+          </div>
+        </label>
+        <div id="media-grid"></div>
+      </section>
+
+      <section class="panel-section">
+        <h2>Posts <button id="add-post-btn" class="btn small" title="Add a new post">+ New</button></h2>
+        <div id="post-list"></div>
+      </section>
+    </aside>
+
+    <!-- ============ CENTER: canvas ============ -->
+    <div id="stage">
+      <div id="canvas-holder">
+        <canvas id="editor-canvas" width="1080" height="1350"></canvas>
+        <div id="export-overlay" hidden>
+          <div class="export-box">
+            <div class="spinner"></div>
+            <div id="export-status">Recording…</div>
+            <button id="export-cancel-btn" class="btn danger">Cancel</button>
+          </div>
+        </div>
+      </div>
+      <div id="stage-hint">Tip: drag to move · corner handle to resize · top handle to rotate · Del to remove</div>
+    </div>
+
+    <!-- ============ RIGHT: properties ============ -->
+    <aside id="right-panel">
+      <section class="panel-section">
+        <h2>Post Settings</h2>
+        <div class="field">
+          <label for="post-name-input">Name</label>
+          <input id="post-name-input" type="text" />
+        </div>
+        <div class="field">
+          <label>Background</label>
+          <div id="bg-info" class="bg-info">None — pick media on the left and press “BG”</div>
+          <div class="row">
+            <input id="bg-color-input" type="color" value="#15161c" title="Background colour (used when no media background)" />
+            <button id="bg-clear-btn" class="btn small">Clear BG media</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="still-duration-input">Still-post duration (s) <span class="muted">for video export when the background is not a video</span></label>
+          <input id="still-duration-input" type="number" min="1" max="60" step="0.5" value="5" />
+        </div>
+      </section>
+
+      <section class="panel-section" id="overlay-props" hidden>
+        <h2>Selected Image</h2>
+
+        <div class="field">
+          <label>Frame preset</label>
+          <div id="preset-buttons" class="preset-grid">
+            <button data-preset="none"     class="preset-btn" title="No frame">🖼<span>None</span></button>
+            <button data-preset="plain"    class="preset-btn" title="Plain white border">▢<span>Plain</span></button>
+            <button data-preset="polaroid" class="preset-btn" title="Polaroid photo">📷<span>Polaroid</span></button>
+            <button data-preset="stamp"    class="preset-btn" title="Postage stamp">📮<span>Stamp</span></button>
+            <button data-preset="circle"   class="preset-btn" title="Circle badge">⭕<span>Circle</span></button>
+          </div>
+        </div>
+
+        <div class="field" id="caption-field" hidden>
+          <label for="caption-input">Polaroid caption</label>
+          <input id="caption-input" type="text" maxlength="40" placeholder="summer '26 ✨" />
+        </div>
+
+        <div class="field">
+          <label for="scale-input">Size <span id="scale-value" class="muted"></span></label>
+          <input id="scale-input" type="range" min="0.05" max="3" step="0.01" />
+        </div>
+
+        <div class="field">
+          <label for="rotation-input">Rotation <span id="rotation-value" class="muted"></span></label>
+          <input id="rotation-input" type="range" min="-180" max="180" step="1" />
+        </div>
+
+        <div class="field">
+          <label class="check"><input id="shadow-input" type="checkbox" checked /> Drop shadow</label>
+        </div>
+
+        <div class="field row">
+          <button id="layer-up-btn" class="btn small" title="Bring forward">▲ Front</button>
+          <button id="layer-down-btn" class="btn small" title="Send backward">▼ Back</button>
+          <button id="duplicate-btn" class="btn small" title="Duplicate">⧉ Copy</button>
+          <button id="delete-overlay-btn" class="btn small danger" title="Remove from canvas">✕ Remove</button>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <div id="toast" hidden></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
