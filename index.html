@@ -4,8 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="Free in-browser Instagram post editor: layer photos with polaroid & stamp frames over a video background and export a ready-to-post image or video. Nothing is uploaded — everything stays on your device." />
+  <meta name="theme-color" content="#0e0f13" />
   <title>InstaPost Editor — build Instagram posts in your browser</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <!-- bump ?v= on every release so browsers never mix cached old CSS/JS with new HTML -->
+  <link rel="stylesheet" href="css/styles.css?v=3" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>" />
 </head>
 <body>
@@ -181,6 +183,6 @@
 
   <div id="toast" hidden></div>
 
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>
