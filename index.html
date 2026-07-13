@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>InstaPost Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Free in-browser Instagram post editor: layer photos with polaroid & stamp frames over a video background and export a ready-to-post image or video. Nothing is uploaded — everything stays on your device." />
+  <title>InstaPost Editor — build Instagram posts in your browser</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>" />
 </head>
@@ -23,6 +24,7 @@
     <div class="topbar-group grow"></div>
 
     <div class="topbar-group">
+      <button id="help-btn" class="btn" title="How to use InstaPost Editor">? Help</button>
       <button id="export-image-btn" class="btn" title="Save the current post as a PNG image">⬇ Image (PNG)</button>
       <button id="export-video-btn" class="btn primary" title="Record the current post as a video file">⬇ Post Video</button>
       <button id="export-all-btn" class="btn accent" title="Record every post back-to-back into one video file">⬇ All Posts → Video</button>
@@ -54,6 +56,17 @@
     <div id="stage">
       <div id="canvas-holder">
         <canvas id="editor-canvas" width="1080" height="1350"></canvas>
+        <div id="welcome-overlay">
+          <div class="welcome-card">
+            <h3>Create your first post</h3>
+            <ol>
+              <li><strong>Add</strong> your pictures &amp; videos</li>
+              <li><strong>Tap a video</strong> — it becomes the background</li>
+              <li><strong>Tap a picture</strong> to place it on top, style it, and export</li>
+            </ol>
+            <button id="welcome-add-btn" class="btn primary">＋ Add pictures &amp; videos</button>
+          </div>
+        </div>
         <div id="export-overlay" hidden>
           <div class="export-box">
             <div class="spinner"></div>
@@ -129,6 +142,42 @@
       </section>
     </aside>
   </main>
+
+  <!-- mobile navigation -->
+  <nav id="mobile-tabs">
+    <button data-tab="media">🗂<span>Media</span></button>
+    <button data-tab="canvas" class="active">🎨<span>Canvas</span></button>
+    <button data-tab="edit">🎛<span>Edit</span></button>
+  </nav>
+
+  <!-- help dialog -->
+  <div id="help-modal" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <button id="help-close-btn" class="modal-close" title="Close">✕</button>
+      <h3>How it works</h3>
+      <ol class="help-steps">
+        <li><strong>Add media</strong> — drop pictures &amp; videos into the library (nothing is uploaded; everything stays on your device).</li>
+        <li><strong>Pick a background</strong> — tap a video (or image) in the library. The first video you add is set automatically.</li>
+        <li><strong>Place pictures</strong> — tap a picture to put it on the canvas, then choose a frame: Polaroid, Stamp, Plain, Circle…</li>
+        <li><strong>Export</strong> — save the post as a PNG image or record it as a video. “All Posts → Video” joins every post into one clip.</li>
+      </ol>
+      <h4>Canvas controls</h4>
+      <ul class="help-list">
+        <li>Drag a picture to move it</li>
+        <li>Corner handles or mouse wheel to resize · round top handle to rotate</li>
+        <li>On touch screens: pinch with two fingers to resize &amp; rotate</li>
+        <li>Arrow keys nudge · <kbd>Shift</kbd>+arrows nudge faster · <kbd>Del</kbd> removes</li>
+      </ul>
+      <h4>Posting to Instagram</h4>
+      <ul class="help-list">
+        <li>Canvas sizes match Instagram: 1:1 and 4:5 feed, 9:16 Reels/Stories</li>
+        <li>Chrome &amp; Edge export MP4 directly — ready to post</li>
+        <li>Other browsers export WebM — convert to MP4 before posting</li>
+        <li>Video export records in real time; watch it live on the canvas</li>
+      </ul>
+    </div>
+  </div>
 
   <div id="toast" hidden></div>
 
