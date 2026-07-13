@@ -62,7 +62,14 @@ const shadowInput = $("#shadow-input");
 const exportOverlay = $("#export-overlay");
 const exportStatus = $("#export-status");
 
+const welcomeOverlay = $("#welcome-overlay");
+const helpModal = $("#help-modal");
+const mobileTabs = $("#mobile-tabs");
+
 const toastEl = $("#toast");
+
+const isTouch = window.matchMedia("(hover: none)").matches;
+const isPhoneLayout = () => window.matchMedia("(max-width: 820px)").matches;
 
 /* ---------------- helpers ---------------- */
 
@@ -100,19 +107,29 @@ async function addFiles(fileList) {
   );
   if (!files.length) return;
 
+  let autoBg = null;
   for (const file of files) {
     try {
       const item = file.type.startsWith("video/")
         ? await loadVideo(file)
         : await loadImage(file);
       state.media.push(item);
+      // First video lands as the background automatically.
+      if (item.type === "video" && !autoBg && activePost() && !activePost().bgId) {
+        autoBg = item;
+      }
     } catch (err) {
       console.error(err);
       toast(`Could not load "${file.name}"`);
     }
   }
   renderMediaGrid();
-  toast(`Added ${files.length} file(s) to the library`);
+  if (autoBg) {
+    setBackground(autoBg.id);
+    toast(`“${autoBg.name}” set as the background — now tap a picture to place it on top`);
+  } else {
+    toast(`Added ${files.length} file(s) — tap a video for the background, a picture to place it`);
+  }
 }
 
 function loadImage(file) {
@@ -192,6 +209,18 @@ function renderMediaGrid() {
   for (const m of state.media) {
     const card = document.createElement("div");
     card.className = "media-card";
+    card.title = m.type === "video" ? "Tap to use as the background" : "Tap to place on the canvas";
+    // Tapping the card does the obvious thing; the small buttons stay for
+    // explicit control (e.g. using a picture as the background).
+    card.onclick = () => {
+      if (m.type === "video") {
+        setBackground(m.id);
+        toast(`“${m.name}” is now the background`);
+      } else {
+        addOverlay(m.id);
+      }
+      if (isPhoneLayout()) showTab("canvas");
+    };
 
     let thumb;
     if (m.type === "image") {
@@ -217,14 +246,14 @@ function renderMediaGrid() {
     const bgBtn = document.createElement("button");
     bgBtn.textContent = "BG";
     bgBtn.title = "Use as the post background";
-    bgBtn.onclick = () => setBackground(m.id);
+    bgBtn.onclick = (e) => { e.stopPropagation(); setBackground(m.id); };
     actions.appendChild(bgBtn);
 
     if (m.type === "image") {
       const addBtn = document.createElement("button");
       addBtn.textContent = "+ Add";
       addBtn.title = "Place on top of the background";
-      addBtn.onclick = () => addOverlay(m.id);
+      addBtn.onclick = (e) => { e.stopPropagation(); addOverlay(m.id); };
       actions.appendChild(addBtn);
     }
 
@@ -232,7 +261,7 @@ function renderMediaGrid() {
     delBtn.className = "del";
     delBtn.textContent = "✕";
     delBtn.title = "Remove from library";
-    delBtn.onclick = () => removeMedia(m.id);
+    delBtn.onclick = (e) => { e.stopPropagation(); removeMedia(m.id); };
     actions.appendChild(delBtn);
 
     card.appendChild(actions);
@@ -595,9 +624,9 @@ function drawSelection(g) {
 }
 
 function handleRadius() {
-  // Keep handles a constant ~9px on screen regardless of canvas zoom.
+  // Constant on-screen size regardless of canvas zoom; larger for fingers.
   const rect = canvas.getBoundingClientRect();
-  return 9 * (canvas.width / Math.max(1, rect.width));
+  return (isTouch ? 13 : 9) * (canvas.width / Math.max(1, rect.width));
 }
 
 /* main loop */
@@ -616,12 +645,19 @@ function tick() {
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
+
+  // First-run guidance stays up until the post has any content.
+  const showWelcome = !exportingPost && post && !post.bgId && post.overlays.length === 0;
+  if (welcomeOverlay.hidden === showWelcome) welcomeOverlay.hidden = !showWelcome;
+
   requestAnimationFrame(tick);
 }
 
 /* ---------------- pointer interaction ---------------- */
 
-let drag = null; // {mode:'move'|'scale'|'rotate', ...}
+let drag = null;  // {mode:'move'|'scale'|'rotate', ...}
+let pinch = null; // two-finger resize/rotate: {ov, baseDist, baseAngle, baseScale, baseRotation}
+const activePointers = new Map(); // pointerId -> canvas point
 
 function canvasPoint(e) {
   const rect = canvas.getBoundingClientRect();
@@ -652,6 +688,25 @@ canvas.addEventListener("pointerdown", (e) => {
   if (!post) return;
   const pt = canvasPoint(e);
   canvas.setPointerCapture(e.pointerId);
+  activePointers.set(e.pointerId, pt);
+
+  // A second finger starts a pinch on the selected image.
+  if (activePointers.size === 2) {
+    const ov = selectedOverlay() || (drag && drag.ov);
+    if (ov) {
+      const [a, b] = [...activePointers.values()];
+      pinch = {
+        ov,
+        baseDist: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
+        baseAngle: Math.atan2(b.y - a.y, b.x - a.x),
+        baseScale: ov.scale,
+        baseRotation: ov.rotation,
+      };
+      drag = null;
+    }
+    return;
+  }
+  if (activePointers.size > 2) return;
 
   const sel = selectedOverlay();
   if (sel && sel.framed) {
@@ -687,7 +742,22 @@ canvas.addEventListener("pointerdown", (e) => {
 });
 
 canvas.addEventListener("pointermove", (e) => {
-  if (!drag || exportingPost) return;
+  if (exportingPost) return;
+  if (activePointers.has(e.pointerId)) {
+    activePointers.set(e.pointerId, canvasPoint(e));
+  }
+
+  if (pinch && activePointers.size >= 2) {
+    const [a, b] = [...activePointers.values()];
+    const dist = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+    const angle = Math.atan2(b.y - a.y, b.x - a.x);
+    pinch.ov.scale = Math.min(6, Math.max(0.03, pinch.baseScale * (dist / pinch.baseDist)));
+    pinch.ov.rotation = pinch.baseRotation + (angle - pinch.baseAngle);
+    syncOverlayPanel(true);
+    return;
+  }
+
+  if (!drag) return;
   const pt = canvasPoint(e);
   const ov = drag.ov;
 
@@ -706,7 +776,11 @@ canvas.addEventListener("pointermove", (e) => {
   }
 });
 
-const endDrag = () => { drag = null; };
+const endDrag = (e) => {
+  activePointers.delete(e.pointerId);
+  if (pinch && activePointers.size < 2) pinch = null;
+  if (activePointers.size === 0) drag = null;
+};
 canvas.addEventListener("pointerup", endDrag);
 canvas.addEventListener("pointercancel", endDrag);
 
@@ -1122,9 +1196,42 @@ $("#export-all-btn").addEventListener("click", async () => {
   await recordPosts(state.posts, "instapost_reel");
 });
 
+/* ---------------- help modal ---------------- */
+
+function setHelpOpen(open) {
+  helpModal.hidden = !open;
+}
+$("#help-btn").addEventListener("click", () => setHelpOpen(true));
+$("#help-close-btn").addEventListener("click", () => setHelpOpen(false));
+helpModal.querySelector(".modal-backdrop").addEventListener("click", () => setHelpOpen(false));
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !helpModal.hidden) setHelpOpen(false);
+});
+
+/* ---------------- mobile tab bar ---------------- */
+
+function showTab(name) {
+  document.body.classList.toggle("show-left", name === "media");
+  document.body.classList.toggle("show-right", name === "edit");
+  for (const btn of mobileTabs.querySelectorAll("button")) {
+    btn.classList.toggle("active", btn.dataset.tab === name);
+  }
+}
+mobileTabs.addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (btn) showTab(btn.dataset.tab);
+});
+// Tapping the canvas area collapses any open sheet on phones.
+canvas.addEventListener("pointerdown", () => {
+  if (isPhoneLayout() && (document.body.classList.contains("show-left") || document.body.classList.contains("show-right"))) {
+    showTab("canvas");
+  }
+});
+
 /* ---------------- init ---------------- */
 
 $("#add-post-btn").addEventListener("click", () => createPost());
+$("#welcome-add-btn").addEventListener("click", () => fileInput.click());
 
 createPost();
 applyCanvasSize("4:5");
