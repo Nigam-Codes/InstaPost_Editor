@@ -1122,10 +1122,6 @@ async function recordPosts(posts, filename) {
         const wasMuted = v.muted, wasLoop = v.loop;
         restore.push(() => { v.muted = wasMuted; v.loop = wasLoop; });
 
-        v.pause();
-        v.loop = false;
-        await seekTo(v, 0);
-
         let node = null;
         if (mixDest) {
           node = getAudioNode(bg);
@@ -1133,19 +1129,31 @@ async function recordPosts(posts, filename) {
         }
 
         const dur = bg.duration || 0;
-        const ended = new Promise((res) => v.addEventListener("ended", res, { once: true }));
-        await v.play();
-        const t0 = performance.now();
+        let t0 = performance.now();
         const ticker = setInterval(() => {
           const s = ((performance.now() - t0) / 1000).toFixed(1);
           exportStatus.textContent = `Recording “${post.name}”${label} — ${s}s / ${dur ? dur.toFixed(1) + "s" : "…"}`;
         }, 200);
 
-        // Wait for the clip to finish (or cancel).
-        await Promise.race([
-          ended,
-          (async () => { while (!exportCancelled) await sleep(150); })(),
-        ]);
+        // Play the clip through once. Chrome can land a seek at the very end
+        // of some files (notably recorder-produced WebM with no cue index),
+        // firing 'ended' immediately — retry the play-through when that happens.
+        for (let attempt = 0; attempt < 3; attempt++) {
+          v.pause();
+          v.loop = false;
+          await seekTo(v, 0);
+          const ended = new Promise((res) => v.addEventListener("ended", res, { once: true }));
+          t0 = performance.now();
+          await v.play();
+          let settled = false;
+          await Promise.race([
+            ended,
+            (async () => { while (!exportCancelled && !settled) await sleep(150); })(),
+          ]);
+          settled = true;
+          const elapsed = (performance.now() - t0) / 1000;
+          if (exportCancelled || dur <= 0.5 || elapsed >= Math.min(1, dur * 0.5)) break;
+        }
         clearInterval(ticker);
         v.pause();
         if (node) node.disconnect(mixDest);
